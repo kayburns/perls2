@@ -1,0 +1,22 @@
+matplotlib
+numpy==1.18.4
+pybullet==2.8.1
+PyYAML==5.1.2
+gym==0.10.8
+hiredis==1.1.0
+redis==3.3.8
+opencv-python==4.1.1.26
+# For torque control in python2.7
+llvmlite==0.32.1
+numba==0.47
+six==1.14.0
+Sphinx==3.2.1
+sphinx-markdown-tables==0.0.15
+sphinx-rtd-theme==0.5.0
+sphinxcontrib-applehelp==1.0.2
+sphinxcontrib-devhelp==1.0.2
+sphinxcontrib-htmlhelp==1.0.3
+sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-qthelp==1.0.3
+sphinxcontrib-serializinghtml==1.1.4
+recommonmark==0.6.0
