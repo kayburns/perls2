@@ -43,7 +43,8 @@ class BulletRobotInterface(RobotInterface):
         super().__init__(config=config, controlType=controlType)
         self._physics_id = physics_id
         self._arm_id = arm_id
-        self._link_id_dict = self.get_link_dict()
+        #self._link_id_dict = self.get_link_dict()
+        self._link_id_dict, self._joint_id_dict = self.get_link_and_joint_dict()
         self.config = config
         robot_name = self.config['world']['robot']
         self.robot_cfg = self.config[robot_name]
@@ -253,6 +254,15 @@ class BulletRobotInterface(RobotInterface):
             physicsClientId=self._physics_id)
 
         return link_name
+    
+    def get_link_and_joint_name(self, link_uid):
+        self.arm_id, link_ind = link_uid
+        _, joint_name, _, _, _, _, _, _, _, _, _, _, link_name, _, _, _, _ = pybullet.getJointInfo(
+            bodyUniqueId=self._arm_id,
+            jointIndex=link_ind,
+            physicsClientId=self._physics_id)
+
+        return joint_name, link_name
 
     def get_link_id_from_name(self, link_name):
         """Get link id from name
@@ -265,6 +275,12 @@ class BulletRobotInterface(RobotInterface):
         """
         if link_name in self._link_id_dict:
             return self._link_id_dict.get(link_name)
+        else:
+            return -1
+    
+    def get_joint_id_from_name(self, joint_name):
+        if joint_name in self._joint_id_dict:
+            return self._joint_id_dict.get(joint_name)
         else:
             return -1
 
@@ -289,6 +305,30 @@ class BulletRobotInterface(RobotInterface):
                 })
 
         return link_id_dict
+
+    def get_link_and_joint_dict(self):
+        num_links = pybullet.getNumJoints(
+            self._arm_id, physicsClientId=self._physics_id)
+
+        link_id_dict = {}
+
+        joint_id_dict = {}
+        for link_id in range(num_links):
+            joint_name, link_name = self.get_link_and_joint_name((self._arm_id, link_id))
+            
+            link_name = link_name.decode('utf-8')
+            joint_name = joint_name.decode('utf-8')
+
+            link_id_dict.update({
+                link_name: link_id
+            })
+            
+            joint_id_dict.update({
+               joint_name: link_id 
+            })
+
+
+        return link_id_dict, joint_id_dict
 
     def get_joint_limit(self, joint_ind):
         """Get the limit of the joint.
@@ -367,6 +407,8 @@ class BulletRobotInterface(RobotInterface):
         gripper_des_q = [l_finger_position, r_finger_position]
         gripper_indices = [l_finger_index, r_finger_index]
 
+        #print (f"")
+        print (f"GRIPPER_DESTINATION: {gripper_des_q}")
         pybullet.setJointMotorControlArray(
             bodyUniqueId=self._arm_id,
             jointIndices=gripper_indices,

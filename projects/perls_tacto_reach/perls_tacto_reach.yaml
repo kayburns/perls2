@@ -14,9 +14,9 @@ control_freq: 500 # Hz
 
 # Robots are specified by types and urdf locations
 # also may include intial setup like poses and orientations
-!include ../../cfg/sawyer.yaml
-!include ../../cfg/panda.yaml
-!include ../../cfg/table_and_bin.yaml
+!include cfg/sawyer.yaml
+!include cfg/panda.yaml
+!include cfg/table_and_bin.yaml
 
 # Default controllers for each robot.
 !include reach_panda_controller.yaml
@@ -24,6 +24,13 @@ control_freq: 500 # Hz
 
 scene_objects:
   ['ground', 'bin']
+
+#Tacto Config Section
+tacto:
+  width: 120
+  height: 160
+  visualize_gui: True
+
 
 sensor:
   camera:
@@ -76,7 +83,7 @@ object:
       count:
         1
       path:
-        'objects/ycb/013_apple/google_16k/textured.urdf'
+        'objects/ycb/013_apple/google_16k/textured_relative.urdf'
       position: [1.5, 0, 0]
       orientation: [0,0,0]
       is_static: True

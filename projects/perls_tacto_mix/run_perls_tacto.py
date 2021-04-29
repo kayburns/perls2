@@ -3,6 +3,7 @@
 from __future__ import division
 import time
 from perls_tacto_env import PerlsTactoEnv
+import numpy as np
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -10,7 +11,8 @@ logging.basicConfig(level=logging.DEBUG)
 def get_action(observation):
     """Run your policy to produce an action.
     """
-    action = [0, 0, 0, 0, 0, 0]
+    delta = observation
+    action = delta / np.linalg.norm(delta)
     return action
 
 
@@ -24,14 +26,15 @@ for ep_num in range(10):
 
     while not done:
         start = time.time()
-        action = get_action(observation)
-
-        color, depth = env.digits.render()
-        env.digits.updateGUI(color, depth)
+        action = get_action(observation[0])
 
         # Pass the start time to enforce policy frequency.
         observation, reward, termination, info = env.step(action, start=start)
 
+        color, depth = env.digits.render()
+        env.digits.updateGUI(color, depth)
+
+        step += 1
         done = termination
 
 # In the real robot we have to use a ROS interface. Disconnect the interface
