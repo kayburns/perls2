@@ -1,6 +1,6 @@
 # Cfg file for SimpleReachEnv
 world:
-  type: 'Real'
+  type: 'Bullet'
   robot: 'panda'
   controlType: 'EEImpedance'
 data_dir: '../../data'
@@ -43,7 +43,11 @@ sensor:
       width: 224
     extrinsics:
         eye_position:
+<<<<<<< HEAD
           [0.6, 0.0, 1.0]
+=======
+          [0.6, 0.0, 0.0]
+>>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
         target_position:
           [0.6, 0., 0]
         up_vector:

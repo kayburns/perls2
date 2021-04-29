@@ -31,16 +31,26 @@ scene_objects:
 
 
 # Default controllers for each robot.
+<<<<<<< HEAD
 !include ../../cfg/default_panda_controller.yaml
 !include ../../cfg/default_sawyer_controller.yaml
+=======
+!include cfg/default_panda_controller.yaml
+!include cfg/default_sawyer_controller.yaml
+>>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
 
 
 # Add an object from the config. If data_dir not explicitly defined,
 # perls2 directory is assumed.
 # object keys must be named object_0, object_1, ...
 
+<<<<<<< HEAD
 # You can disable loading objects from config by commenting out the entire 
 # object dict. 
+=======
+# You can disable loading objects from config by commenting out the entire
+# object dict.
+>>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
 object:
   object_dict:
     object_0:

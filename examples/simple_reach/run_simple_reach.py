@@ -6,7 +6,10 @@ from simple_reach_env import SimpleReachEnv
 import numpy as np
 import gym
 
+<<<<<<< HEAD
 import perls2
+=======
+>>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
 import os
 import sys
 import logging
@@ -50,8 +53,6 @@ for ep_num in range(5):
     step = 0
     observation = env.reset()
     done = False
-
-    
     while not done:
         action = get_action(observation[0])
         observation, reward, termination, info = env.step(action)
