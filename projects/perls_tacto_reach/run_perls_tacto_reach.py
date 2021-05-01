@@ -10,7 +10,7 @@ import perls2
 import os
 import sys
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 import time
 
 
@@ -46,7 +46,7 @@ action_list = []
 for ep_num in range(5):
     if (ep_num > 0):
         print("Episode {} complete..pausing".format(ep_num - 1))
-        time.sleep(3)
+        time.sleep(10)
     step = 0
     observation = env.reset()
     done = False
@@ -67,5 +67,6 @@ for ep_num in range(5):
 
         step += 1
         done = termination
+        time.sleep(2)
 
 env.robot_interface.reset()

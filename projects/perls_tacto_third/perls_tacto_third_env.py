@@ -1,15 +1,11 @@
 """Template Environment for Projects.
 """
 from perls2.envs.env import Env
-import tacto
 import numpy as np
-import os
+import tacto
 import logging
-logging.basicConfig(level=logging.INFO)
-import math
 
-
-class PerlsTactoEnv(Env):
+class PerlsTactoThirdEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
     """
 
@@ -24,14 +20,16 @@ class PerlsTactoEnv(Env):
         super().__init__(cfg_path, use_visualizer, name)
         self.digits = tacto.Sensor(**self.config["tacto"])
 
-        #left_joint = self.robot_interface.get_link_id_from_name('finger_left_tip')
-        #right_joint = self.robot_interface.get_link_id_from_name('finger_right_tip')
+        self.goal_position = self.robot_interface.ee_position
+        self.object_interface = self.world.object_interfaces['013_apple']
+        self.update_goal_position()
+
+        self.robot_interface.reset()
+        self.reset_position = self.robot_interface.ee_position
+        self._initial_ee_orn = self.robot_interface.ee_orientation
 
         left_joint = self.robot_interface.get_joint_id_from_name('joint_finger_tip_left')
         right_joint = self.robot_interface.get_joint_id_from_name('joint_finger_tip_right')
-        print(f"-----------------{self.robot_interface.get_link_id_from_name('right_hand')}-----------------")
-        print(f"-----------------LEFT_IDX: {left_joint}-------------")
-        print(f"-----------------RIGHT_IDX: {right_joint}-------------")
 
         self.digits.add_camera(self.robot_interface.arm_id, [left_joint, right_joint])
 
@@ -39,15 +37,9 @@ class PerlsTactoEnv(Env):
         obj_id = self.world.arena.object_dict['013_apple']
         self.digits.add_object(obj_path, obj_id, globalScaling=1.0)
 
-        self.robot_interface.set_gripper_to_value(0.1)
-
-        self.goal_position = self.robot_interface.ee_position
-        self.object_interface = self.world.object_interfaces['013_apple']
-        self.update_goal_position()
-        
-        self.robot_interface.reset()
-        self.reset_position = self.robot_interface.ee_position
-        self._initial_ee_orn = self.robot_interface.ee_orientation
+        self.CONV_RADIUS = 0.05
+        self.in_position = False
+        self.grasped = False
 
     def update_goal_position(self):
         """Take current object position to get new goal position
@@ -55,11 +47,11 @@ class PerlsTactoEnv(Env):
             Helper function to raise the goal position a bit higher
             than the actual object.
         """
-        goal_height_offset = 0.2
+        goal_height_offset = 0.08#0.2
         object_pos = self.object_interface.position
         object_pos[2] += goal_height_offset
         self.goal_position = object_pos
-    
+
     def get_observation(self):
         """Get observation of current env state
 
@@ -88,17 +80,17 @@ class PerlsTactoEnv(Env):
         obs['object_pose'] = self.world.object_interfaces['object_name'].pose
 
         """
-        self.update_goal_position()
+        return obs
 
-        current_ee_pose = self.robot_interface.ee_pose
-        delta = self.goal_position - self.robot_interface.ee_position
+    def _get_dist_to_goal(self):
 
-        camera_img = self.camera_interface.frames()
-        observation = (delta, current_ee_pose, camera_img.get('image'))
+        current_ee_pos = np.asarray(self.robot_interface.ee_position)
+        #weight_vec = np.array([1.2, 1.2, 0.8], dtype=np.float32)
+        diff = (self.goal_position - current_ee_pos)
+        abs_dist = np.linalg.norm(diff)
 
-        return observation
-        #return obs
-
+        return abs_dist
+    
     def _exec_action(self, action):
         """Applies the given action to the environment.
 
@@ -131,9 +123,18 @@ class PerlsTactoEnv(Env):
             """
             pass
 
-        action = np.hstack((action, np.zeros(3)))
-        self.robot_interface.move_ee_delta(delta=action, set_ori=self._initial_ee_orn)
-
+        #Always move to goal position
+        if self.in_position == False:
+            self.robot_interface.set_ee_pose_position_control(self.goal_position, self._initial_ee_orn)
+            if self._get_dist_to_goal() <= self.CONV_RADIUS:
+                self.in_position = True
+        else:
+            lower_goal = self.goal_position
+            lower_goal[2] -= 0.001
+            #self.robot_interface.set_ee_pose_position_control(lower_goal, self._initial_ee_orn)
+            self.robot_interface.set_gripper_to_value(0.8)
+            self.grasped = True
+        
     def reset(self):
         """Reset the environment.
 
@@ -162,18 +163,17 @@ class PerlsTactoEnv(Env):
             """
             pass
 
-        if self.config['object']['random']['randomize']:
-            self.object_interface.place(self.arena.randomize_obj_pos())
-        else:
-            self.object_interface.place(
-                self.config['object']['object_dict']['object_0']['default_position'])
-        
-        self.camera_interface.set_view_matrix(self.arena.view_matrix)
-        self.camera_interface.set_projection_matrix(self.arena.projection_matrix)
+        self.robot_interface.set_gripper_to_value(0.0)
+        # Step simulation until object has reached stable position.
+        #self.world.wait_until_stable()
 
-        self.world.wait_until_stable()
         observation = self.get_observation()
 
+        self.in_position = False
+        self.grasped = False
+
+        ee_pose = self.robot_interface.ee_pose_euler
+        #logging.debug(f"--------------------RESET ee_pose: {ee_pose}")
         return observation
 
     def step(self, action, start=None):
@@ -218,24 +218,14 @@ class PerlsTactoEnv(Env):
             Args: None
             Returns: bool if episode has terminated or not.
         """
-        convergence_radius = 0.1
-
-        abs_dist = self._get_dist_to_goal()
-        if (abs_dist < convergence_radius):
-            logging.debug("done - success!")
-            return True
         if (self.num_steps > self.MAX_STEPS):
-            logging.debug("done - max steps reached")
-            logging.debug("final delta to goal \t{}".format(abs_dist))
+            logging.debug("Maximum steps reached")
             return True
         else:
+            if self.grasped == True:
+                return True
             return False
 
-    def _get_dist_to_goal(self):
-        current_ee_pos = np.asarray(self.robot_interface.ee_position)
-        abs_dist = np.linalg.norm(self.goal_position - current_ee_pos)
-
-        return abs_dist
     def visualize(self, observation, action):
         """Visualize the action - that is,
         add visual markers to the world (in case of sim)
@@ -259,7 +249,4 @@ class PerlsTactoEnv(Env):
     def rewardFunction(self):
         """Implement reward function here.
         """
-        dist_to_goal = self._get_dist_to_goal()
-        reward = 1 - math.tanh(dist_to_goal)
-        return reward
-        
+        return -1

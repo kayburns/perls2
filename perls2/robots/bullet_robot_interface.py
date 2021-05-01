@@ -407,8 +407,7 @@ class BulletRobotInterface(RobotInterface):
         gripper_des_q = [l_finger_position, r_finger_position]
         gripper_indices = [l_finger_index, r_finger_index]
 
-        #print (f"")
-        print (f"GRIPPER_DESTINATION: {gripper_des_q}")
+        #print (f"GRIPPER_DESTINATION: {gripper_des_q}")
         pybullet.setJointMotorControlArray(
             bodyUniqueId=self._arm_id,
             jointIndices=gripper_indices,

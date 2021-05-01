@@ -42,9 +42,9 @@ class PerlsTactoReachEnv(Env):
 
         left_joint = self.robot_interface.get_joint_id_from_name('joint_finger_tip_left')
         right_joint = self.robot_interface.get_joint_id_from_name('joint_finger_tip_right')
-        print(f"-----------------{self.robot_interface.get_link_id_from_name('right_hand')}-----------------")
-        print(f"-----------------LEFT_IDX: {left_joint}-------------")
-        print(f"-----------------RIGHT_IDX: {right_joint}-------------")
+        #print(f"-----------------{self.robot_interface.get_link_id_from_name('right_hand')}-----------------")
+        #print(f"-----------------LEFT_IDX: {left_joint}-------------")
+        #print(f"-----------------RIGHT_IDX: {right_joint}-------------")
 
         self.digits.add_camera(self.robot_interface.arm_id, [left_joint, right_joint])
 
@@ -60,6 +60,7 @@ class PerlsTactoReachEnv(Env):
         self._initial_ee_orn = self.robot_interface.ee_orientation
 
         self.is_lowered = False
+        self.gripper_set = False
 
     def reset(self):
         """Reset the environment.
@@ -169,6 +170,7 @@ class PerlsTactoReachEnv(Env):
         action = np.hstack((action, np.zeros(3)))
         self.robot_interface.move_ee_delta(delta=action, set_ori=self._initial_ee_orn)
 
+        self.robot_interface.set_ee_pose_position_control(self.goal_position, self._initial_ee_orn)
     def _check_termination(self):
         """ Query state of environment to check termination condition
 
@@ -180,14 +182,22 @@ class PerlsTactoReachEnv(Env):
             Returns: bool if episode has terminated or not.
         """
         # radius for convergence
-        convergence_radius = 0.05
+        convergence_radius = 0.1
+        """if self.is_lowered == True:
+            convergence_radius = 0.05"""
 
         abs_dist = self._get_dist_to_goal()
         if (abs_dist < convergence_radius):
             """if self.is_lowered == False:
-                self.goal_position[2] -= 0.05
+                logging.debug("IN POSITION. LOWERING!")
+                self.goal_position[2] -= 0.005
                 self.is_lowered = True
+                return False
+            if self.gripper_set == False:
+                self.robot_interface.set_gripper_to_value(0.8)
+                gripper_set = True
                 return False"""
+
             logging.debug("done - success!")
             return True
         if (self.num_steps > self.MAX_STEPS):
@@ -200,7 +210,9 @@ class PerlsTactoReachEnv(Env):
     def _get_dist_to_goal(self):
 
         current_ee_pos = np.asarray(self.robot_interface.ee_position)
-        abs_dist = np.linalg.norm(self.goal_position - current_ee_pos)
+        weight_vec = np.array([1.2, 1.2, 0.8], dtype=np.float32)
+        diff = np.multiply((self.goal_position - current_ee_pos), weight_vec)
+        abs_dist = np.linalg.norm(diff)
 
         return abs_dist
 

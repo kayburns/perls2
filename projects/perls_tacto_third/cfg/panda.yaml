@@ -1,48 +1,43 @@
-# Cfg file for sawyer arm
-sawyer:
+#Cfg file specifying FRANKA PANDA ARM
+panda:
   arm:
     path:
-      'robot/rethink/sawyer_description/urdf/sawyer_arm_wsg50.urdf'
-      #'robot/rethink/sawyer_description/urdf/sawyer_arm.urdf'
-      # 'robot/rethink/sawyer_description/urdf/sawyer_urdf.urdf'
+      #'robot/franka_description/robots/panda_arm_hand.urdf'
+      'robot/franka_panda/panda.urdf'
     pose:
       [0, 0, 0]
     orn:
       [0, 0, 0]
     is_static:
       True
-  base:
-    path:
-      'robot/rethink/sawyer_description/urdf/sawyer_base.urdf'
-    pose:
-      [0, 0, 0.01]
-    orn:
-      [0, 0, 0]
-    is_static:
-      True
+  base: 'None'
   neutral_joint_angles:
-    [0.00, -1.18, 0.00, 2.18, 0.00, 0.57, 1.5708]
+   [0., -0.3135, 0., -2.515, 0., 2.226, 0.87]
+   
+
   limb_joint_names: [
-  'right_j0',
-  'right_j1',
-  'right_j2',
-  'right_j3',
-  'right_j4',
-  'right_j5',
-  'right_j6',
+  'panda_link0',
+  'panda_link1',
+  'panda_link2',
+  'panda_link3',
+  'panda_link4',
+  'panda_link5',
+  'panda_link6',
   ]
+
+  # TODO: Change these to actual values. with gripper.
   # Height of the limb (installed on the base) from the ground, for computing IK.
   limb_height: 0.9
   # Link name of the end effector, for computing IK.
   end_effector_name: 'right_hand'
   # Joint name of the left finger of the gripper.
-  l_finger_name: 'gripper_left' #'r_gripper_l_finger'
+  l_finger_name: 'panda_leftfinger'
   # Joint name of the right finger of the gripper.
-  r_finger_name: 'gripper_right' #'r_gripper_r_finger'
+  r_finger_name: 'panda_rightfinger'
   # Link name of the left finger tip of the gripper.
-  l_finger_tip_name: 'finger_left_tip' #'r_gripper_l_finger_tip'
+  l_finger_tip_name: 'r_gripper_l_finger_tip'
   # Link name of the right finger tip of the gripper.
-  r_finger_tip_name: 'finger_right_tip' #'r_gripper_r_finger_tip'
+  r_finger_tip_name: 'r_gripper_r_finger_tip'
 
   # Default maximum joint velocity ratio, chosen from (0, 1].
   # Set it to 1.0 for data collection, 0.3 for demo.

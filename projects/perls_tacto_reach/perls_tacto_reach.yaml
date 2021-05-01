@@ -88,10 +88,10 @@ object:
       orientation: [0,0,0]
       is_static: True
       scale: 1.0
-      default_position: [0.7, 0.1, 0.03] #z  = 0.1
-  default_position: [0.7, 0.1, 0.03] #z  = 0.1
+      default_position: [0.7, 0.1, 0.1] #z  = 0.1
+  default_position: [0.7, 0.1, 0.1] #z  = 0.1
   random:
-    randomize: True
+    randomize: False
     position:
       lower:
         [0.3, -0.2, 0.1]
