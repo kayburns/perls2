@@ -4,6 +4,7 @@ from perls2.envs.env import Env
 import numpy as np
 import tacto
 import logging
+import os
 
 class PerlsTactoThirdEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
@@ -33,13 +34,30 @@ class PerlsTactoThirdEnv(Env):
 
         self.digits.add_camera(self.robot_interface.arm_id, [left_joint, right_joint])
 
-        obj_path = 'data/objects/ycb/013_apple/google_16k/textured_relative.urdf' #os.path.join(self.world.arena.data_dir, 'objects/ycb/013_apple/google_16k/textured.urdf')
-        obj_id = self.world.arena.object_dict['013_apple']
-        self.digits.add_object(obj_path, obj_id, globalScaling=1.0)
+        self.tacto_add_objects()
 
         self.CONV_RADIUS = 0.05
         self.in_position = False
         self.grasped = False
+
+    def tacto_add_objects(self):
+        """
+            Adds the objects in the configuration file to the Tacto sim
+        """
+        if not isinstance(self.config["object"], dict):
+            return
+        if ("object_dict" in self.config["object"].keys()) == False:
+            return
+
+        data_dir = self.config["data_dir"]
+        for obj_idx, obj_key in enumerate(self.config["object"]["object_dict"]):
+            object_name = self.config["object"]["object_dict"][obj_key]["name"]
+            object_path = self.config["object"]["object_dict"][obj_key]["path"]
+
+            object_path = os.path.join(data_dir, object_path)
+            pb_obj_id = self.world.arena.object_dict[object_name]
+
+            self.digits.add_object(object_path, pb_obj_id, globalScaling=1.0)
 
     def update_goal_position(self):
         """Take current object position to get new goal position
