@@ -67,6 +67,5 @@ for ep_num in range(5):
 
         step += 1
         done = termination
-        time.sleep(2)
 
 env.robot_interface.reset()

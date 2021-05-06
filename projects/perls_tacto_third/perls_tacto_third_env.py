@@ -18,6 +18,7 @@ class PerlsTactoThirdEnv(Env):
 
         Set up any variables that are necessary for the environment and your task.
         """
+        #NOTE: Tacto does not seem to be registering the peg even though it is making contact in PyBullet
         super().__init__(cfg_path, use_visualizer, name)
         self.digits = tacto.Sensor(**self.config["tacto"])
 
@@ -58,6 +59,7 @@ class PerlsTactoThirdEnv(Env):
             pb_obj_id = self.world.arena.object_dict[object_name]
 
             self.digits.add_object(object_path, pb_obj_id, globalScaling=1.0)
+            print (f"DIGIT ADDED: {object_name}")
 
     def update_goal_position(self):
         """Take current object position to get new goal position
@@ -65,7 +67,7 @@ class PerlsTactoThirdEnv(Env):
             Helper function to raise the goal position a bit higher
             than the actual object.
         """
-        goal_height_offset = 0.08#0.2
+        goal_height_offset = 0.08 #0.08#0.2
         object_pos = self.object_interface.position
         object_pos[2] += goal_height_offset
         self.goal_position = object_pos
@@ -150,7 +152,7 @@ class PerlsTactoThirdEnv(Env):
             lower_goal = self.goal_position
             lower_goal[2] -= 0.001
             #self.robot_interface.set_ee_pose_position_control(lower_goal, self._initial_ee_orn)
-            self.robot_interface.set_gripper_to_value(0.8)
+            self.robot_interface.set_gripper_to_value(1.0)
             self.grasped = True
         
     def reset(self):
