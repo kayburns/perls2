@@ -38,7 +38,7 @@ class BaselinePegInsertEnv(Env):
         self.peg_interface = self.world.object_interfaces['peg']
         self.hole_interface = self.world.object_interfaces['hole_box']
         
-        self.term_state = "PEG_COMPLETE" #NOTE: We terminate at grab for now
+        self.term_state = None#"PEG_COMPLETE" #NOTE: We terminate at grab for now
 
         self.robot_interface.reset()
         self.reset_position = self.robot_interface.ee_position
@@ -160,8 +160,9 @@ class BaselinePegInsertEnv(Env):
         print ("PEG_MOVE")
         goal_height_offset = 0.185
         object_pos = self.hole_interface.position
-        object_pos[2] += goal_height_offset + 0.25
-        object_pos[1] += 0.042
+        #object_pos[0] += 0.004
+        object_pos[2] += goal_height_offset + 0.3
+        object_pos[1] += 0.105
         goal_position = object_pos
 
         
@@ -180,15 +181,25 @@ class BaselinePegInsertEnv(Env):
         #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
         self.robot_interface.set_ee_pose_position_control(interim_goal, self._initial_ee_orn)
         print (f"GOAL_DIST: {self._get_dist_to_goal(goal_position)}")
-        if self._get_dist_to_goal(goal_position) <= 0.002:
+        if self._get_dist_to_goal(goal_position) <= 0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
-            self.robot_interface.set_gripper_to_value(0.5)
+            #self.robot_interface.set_gripper_to_value(0.5)
             self.grasped = True
         
 
     def _peg_complete_exec(self):
+        print ("PEG_DOWN")
+        goal_position = self.robot_interface.ee_position
+        goal_position[2] -= 0.05
+
+        self.robot_interface.set_ee_pose_position_control(goal_position, self._initial_ee_orn)
+        print (f"GOAL_DIST: {self._get_dist_to_goal(goal_position)}")
+        if self._get_dist_to_goal(goal_position) <= 0.05:
+            self.curr_state = self.state_dict[self.curr_state]["next"]
         
+            self.robot_interface.set_gripper_to_value(0.0)
+            self.grasped = True
         pass
 
     def _exec_action(self, action):
