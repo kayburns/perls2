@@ -24,9 +24,9 @@ class BaselinePegInsertEnv(Env):
         self.state_list = ["PEG_SETUP", "PEG_GRAB", "PEG_MOVING", "PEG_COMPLETE"]
         self.state_dict = {
                             "PEG_SETUP": {"method": self._peg_setup_exec, "next": "PEG_GRAB"},
-                            "PEG_GRAB": {"method": self._peg_grab_exec, "next": "PEG_MOVING"}
+                            "PEG_GRAB": {"method": self._peg_grab_exec, "next": "PEG_MOVING"},
                             "PEG_MOVING": {"method": self._peg_move_exec, "next": "PEG_COMPLETE"},
-                            "PEG_COMPLETE": {"method": self._peg_complete_exec, "next": None}
+                            "PEG_COMPLETE": {"method": self._peg_complete_exec, "next": None},
                           }
 
         self.curr_state = self.state_list[0]
@@ -37,7 +37,8 @@ class BaselinePegInsertEnv(Env):
         
         self.peg_interface = self.world.object_interfaces['peg']
         self.hole_interface = self.world.object_interfaces['hole_box']
-        #self.update_goal_position()
+        
+        self.term_state = "PEG_COMPLETE" #NOTE: We terminate at grab for now
 
         self.robot_interface.reset()
         self.reset_position = self.robot_interface.ee_position
@@ -83,7 +84,7 @@ class BaselinePegInsertEnv(Env):
             than the actual object.
         """
         goal_height_offset = 0.2 #0.08#0.2
-        object_pos = self.object_interface.position
+        object_pos = self.peg_interface.position
         object_pos[2] += goal_height_offset
         self.goal_position = object_pos
 
@@ -117,36 +118,77 @@ class BaselinePegInsertEnv(Env):
         """
         return obs
 
-    def _get_dist_to_goal(self):
-
+    def _get_dist_to_goal(self, goal_position):
         current_ee_pos = np.asarray(self.robot_interface.ee_position)
-        #weight_vec = np.array([1.2, 1.2, 0.8], dtype=np.float32)
-        diff = (self.goal_position - current_ee_pos)
+        diff = (goal_position - current_ee_pos)
         abs_dist = np.linalg.norm(diff)
 
         return abs_dist
     
+    def _get_delta_to_goal(self, goal_position):
+        current_ee_pos = np.asarray(self.robot_interface.ee_position)
+        diff = (goal_position - current_ee_pos)
+        return diff
+    
     def _peg_setup_exec(self):
-        
-        if self.in_position == False:
-            #self.robot_interface.set_ee_pose_position_control(self.goal_position, self._initial_ee_orn)
-            if self._get_dist_to_goal() <= self.CONV_RADIUS:
-                self.in_position = True
-        else:
-            lower_goal = self.goal_position
-            lower_goal[2] -= 0.001
-            #self.robot_interface.set_ee_pose_position_control(lower_goal, self._initial_ee_orn)
-            self.robot_interface.set_gripper_to_value(1.0)
-            self.grasped = True
-        pass
+        print ("PEG_SETUP")
+        goal_height_offset = 0.4
+        object_pos = self.peg_interface.position
+        object_pos[2] += goal_height_offset
+        goal_position = object_pos
+
+        self.robot_interface.set_ee_pose_position_control(goal_position, self._initial_ee_orn)
+        if self._get_dist_to_goal(goal_position) <= self.CONV_RADIUS:
+            self.curr_state = self.state_dict[self.curr_state]["next"]
 
     def _peg_grab_exec(self):
-        pass
+        print ("PEG_GRAB")
+        goal_height_offset = 0.2
+        object_pos = self.peg_interface.position
+        object_pos[2] += goal_height_offset
+        goal_position = object_pos
+        self.robot_interface.set_ee_pose_position_control(goal_position, self._initial_ee_orn)
+        
+        if self._get_dist_to_goal(goal_position) <= self.CONV_RADIUS:
+            self.curr_state = self.state_dict[self.curr_state]["next"]
+        
+            self.robot_interface.set_gripper_to_value(0.5)
+            self.grasped = True
+        
 
     def _peg_move_exec(self):
-        pass
+        print ("PEG_MOVE")
+        goal_height_offset = 0.185
+        object_pos = self.hole_interface.position
+        object_pos[2] += goal_height_offset + 0.25
+        object_pos[1] += 0.042
+        goal_position = object_pos
+
+        
+        goal_delta = self._get_delta_to_goal(goal_position)
+        goal_delta = goal_delta / np.linalg.norm(goal_delta)
+
+        move_rate = 0.02
+        goal_delta = move_rate * goal_delta
+
+        interim_goal = self.robot_interface.ee_position + goal_delta
+
+        goal_list = goal_delta.tolist()
+        #print (f"GOAL_LIST: {goal_list}")
+        goal_list.extend([0, 0, 0])
+
+        #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
+        self.robot_interface.set_ee_pose_position_control(interim_goal, self._initial_ee_orn)
+        print (f"GOAL_DIST: {self._get_dist_to_goal(goal_position)}")
+        if self._get_dist_to_goal(goal_position) <= 0.002:
+            self.curr_state = self.state_dict[self.curr_state]["next"]
+        
+            self.robot_interface.set_gripper_to_value(0.5)
+            self.grasped = True
+        
 
     def _peg_complete_exec(self):
+        
         pass
 
     def _exec_action(self, action):
@@ -213,6 +255,7 @@ class BaselinePegInsertEnv(Env):
             """
             pass
 
+        self.curr_state = self.state_list[0]
         self.robot_interface.set_gripper_to_value(0.0)
         # Step simulation until object has reached stable position.
         #self.world.wait_until_stable()
@@ -272,7 +315,7 @@ class BaselinePegInsertEnv(Env):
             logging.debug("Maximum steps reached")
             return True
         else:
-            if self.grasped == True:
+            if self.curr_state == self.term_state:
                 return True
             return False
 
