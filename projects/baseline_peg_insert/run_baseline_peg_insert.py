@@ -2,9 +2,8 @@
 """
 from __future__ import division
 import time
-from perls_tacto_third_env import PerlsTactoThirdEnv
+from baseline_peg_insert_env import BaselinePegInsertEnv
 import logging
-import pybullet as p
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -15,7 +14,7 @@ def get_action(observation):
     return action
 
 
-env = PerlsTactoThirdEnv('projects/perls_tacto_third/perls_tacto_third.yaml', True, "TemplateEnv")
+env = BaselinePegInsertEnv('projects/baseline_peg_insert/baseline_peg_insert.yaml', True, "TemplateEnv")
 
 for ep_num in range(10):
     logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')
@@ -34,15 +33,6 @@ for ep_num in range(10):
         env.digits.updateGUI(color, depth)
 
         done = termination
-        
-        if done:
-            for i in range(50):
-                p.stepSimulation(env._physics_id)
-                
-                color, depth = env.digits.render()
-                env.digits.updateGUI(color, depth)
-                
-                time.sleep(0.1)
         time.sleep(0.5)
 
 # In the real robot we have to use a ROS interface. Disconnect the interface

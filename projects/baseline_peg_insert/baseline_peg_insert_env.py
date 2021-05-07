@@ -6,7 +6,7 @@ import tacto
 import logging
 import os
 
-class PerlsTactoThirdEnv(Env):
+class BaselinePegInsertEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
     """
 
@@ -20,11 +20,24 @@ class PerlsTactoThirdEnv(Env):
         """
         #NOTE: Tacto does not seem to be registering the peg even though it is making contact in PyBullet
         super().__init__(cfg_path, use_visualizer, name)
+
+        self.state_list = ["PEG_SETUP", "PEG_GRAB", "PEG_MOVING", "PEG_COMPLETE"]
+        self.state_dict = {
+                            "PEG_SETUP": {"method": self._peg_setup_exec, "next": "PEG_GRAB"},
+                            "PEG_GRAB": {"method": self._peg_grab_exec, "next": "PEG_MOVING"}
+                            "PEG_MOVING": {"method": self._peg_move_exec, "next": "PEG_COMPLETE"},
+                            "PEG_COMPLETE": {"method": self._peg_complete_exec, "next": None}
+                          }
+
+        self.curr_state = self.state_list[0]
+
         self.digits = tacto.Sensor(**self.config["tacto"])
 
         self.goal_position = self.robot_interface.ee_position
-        self.object_interface = self.world.object_interfaces['peg']
-        self.update_goal_position()
+        
+        self.peg_interface = self.world.object_interfaces['peg']
+        self.hole_interface = self.world.object_interfaces['hole_box']
+        #self.update_goal_position()
 
         self.robot_interface.reset()
         self.reset_position = self.robot_interface.ee_position
@@ -54,13 +67,13 @@ class PerlsTactoThirdEnv(Env):
         for obj_idx, obj_key in enumerate(self.config["object"]["object_dict"]):
             object_name = self.config["object"]["object_dict"][obj_key]["name"]
             object_path = self.config["object"]["object_dict"][obj_key]["path"]
-
+            scale = self.config["object"]["object_dict"][obj_key]["scale"]
             print (f"Object Path: {object_path}")
             
             object_path = os.path.join(data_dir, object_path)
             pb_obj_id = self.world.arena.object_dict[object_name]
 
-            self.digits.add_object(object_path, pb_obj_id, globalScaling=1.0)
+            self.digits.add_object(object_path, pb_obj_id, globalScaling=scale)
             print (f"DIGIT ADDED: {object_name}")
 
     def update_goal_position(self):
@@ -113,6 +126,29 @@ class PerlsTactoThirdEnv(Env):
 
         return abs_dist
     
+    def _peg_setup_exec(self):
+        
+        if self.in_position == False:
+            #self.robot_interface.set_ee_pose_position_control(self.goal_position, self._initial_ee_orn)
+            if self._get_dist_to_goal() <= self.CONV_RADIUS:
+                self.in_position = True
+        else:
+            lower_goal = self.goal_position
+            lower_goal[2] -= 0.001
+            #self.robot_interface.set_ee_pose_position_control(lower_goal, self._initial_ee_orn)
+            self.robot_interface.set_gripper_to_value(1.0)
+            self.grasped = True
+        pass
+
+    def _peg_grab_exec(self):
+        pass
+
+    def _peg_move_exec(self):
+        pass
+
+    def _peg_complete_exec(self):
+        pass
+
     def _exec_action(self, action):
         """Applies the given action to the environment.
 
@@ -146,16 +182,8 @@ class PerlsTactoThirdEnv(Env):
             pass
 
         #Always move to goal position
-        if self.in_position == False:
-            self.robot_interface.set_ee_pose_position_control(self.goal_position, self._initial_ee_orn)
-            if self._get_dist_to_goal() <= self.CONV_RADIUS:
-                self.in_position = True
-        else:
-            lower_goal = self.goal_position
-            lower_goal[2] -= 0.001
-            #self.robot_interface.set_ee_pose_position_control(lower_goal, self._initial_ee_orn)
-            self.robot_interface.set_gripper_to_value(1.0)
-            self.grasped = True
+        exec_method = self.state_dict[self.curr_state]["method"]
+        exec_method()
         
     def reset(self):
         """Reset the environment.
