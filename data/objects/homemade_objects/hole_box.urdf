@@ -16,7 +16,7 @@
     <link name="base_link">
         <contact>
     	    <friction_anchor/>
-    	    <lateral_friction value="0.5"/>
+    	    <lateral_friction value="1.0"/>
             <rolling_friction value="0.005"/>
             <spinning_friction value="0.005"/>
         </contact>
@@ -39,7 +39,7 @@
     <link name="top_short">
         <contact>
     	    <friction_anchor/>
-    	    <lateral_friction value="0.5"/>
+    	    <lateral_friction value="1.0"/>
             <rolling_friction value="0.005"/>
             <spinning_friction value="0.005"/>
         </contact>

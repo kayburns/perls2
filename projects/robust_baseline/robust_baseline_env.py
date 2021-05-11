@@ -6,7 +6,7 @@ import tacto
 import logging
 import os
 
-class BaselinePegInsertEnv(Env):
+class RobustBaselineEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
     """
 
@@ -28,6 +28,8 @@ class BaselinePegInsertEnv(Env):
                             "PEG_MOVING": {"method": self._peg_move_exec, "next": "PEG_COMPLETE"},
                             "PEG_COMPLETE": {"method": self._peg_complete_exec, "next": None},
                           }
+        
+        self.scale_dict = {}
 
         self.curr_state = self.state_list[0]
 
@@ -74,6 +76,7 @@ class BaselinePegInsertEnv(Env):
             object_path = os.path.join(data_dir, object_path)
             pb_obj_id = self.world.arena.object_dict[object_name]
 
+            self.scale_dict[object_name] = scale
             self.digits.add_object(object_path, pb_obj_id, globalScaling=scale)
             print (f"DIGIT ADDED: {object_name}")
 
@@ -132,7 +135,7 @@ class BaselinePegInsertEnv(Env):
     
     def _peg_setup_exec(self):
         print ("PEG_SETUP")
-        goal_height_offset = 0.4
+        goal_height_offset = 0.5
         object_pos = self.peg_interface.position
         object_pos[2] += goal_height_offset
         goal_position = object_pos
@@ -158,11 +161,18 @@ class BaselinePegInsertEnv(Env):
 
     def _peg_move_exec(self):
         print ("PEG_MOVE")
-        goal_height_offset = 0.185
+        hole_scale = self.scale_dict["hole_box"]
+        box_height = 0.4 * hole_scale
+        box_side_w = 0.4 * hole_scale
+
+        r_width = 0.2 * hole_scale
+        ee_height = self.robot_interface.ee_position[2]
+        goal_height_offset = box_height + 0.06#0.185
         object_pos = self.hole_interface.position
         #object_pos[0] += 0.004
         object_pos[2] += goal_height_offset + 0.3
-        object_pos[1] += 0.105
+        #object_pos[2] = goal_height_offset
+        object_pos[1] += 0.5 * box_side_w + 0.5*r_width #- 0.015#0.105
         goal_position = object_pos
 
         
