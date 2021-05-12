@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot name="myfirst">
+    <link name="base_link">
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value="1.2"/>
+            <inertia  ixx="0.013" ixy="0.0"  ixz="0.0"  iyy="0.008"  iyz="0.0"  izz="0.013" />
+        </inertial>
+        <visual>
+            <geometry>
+                <box size="0.2 0.2 0.3"/>
+            </geometry>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <box size="0.2 0.2 0.3"/>
+            </geometry>
+        </collision>
+    </link>
+</robot>

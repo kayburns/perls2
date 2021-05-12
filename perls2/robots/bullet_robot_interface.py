@@ -711,6 +711,80 @@ class BulletRobotInterface(RobotInterface):
 
         return np.asarray(angular)[:, :7]
 
+    def link_position(self, link_index):
+        link_position, _, _, _, _, _, = pybullet.getLinkState(
+            self._arm_id,
+            link_index,
+            computeForwardKinematics=1,
+            physicsClientId=self._physics_id)
+        return list(link_position)
+
+    def set_link_pose_position_control(
+            self,
+            link_idx, 
+            target_position,
+            target_orientation,
+            target_velocity=None,
+            max_velocity=None,
+            max_force=None,
+            position_gain=None,
+            velocity_gain=None):
+        """Position control of a joint.
+
+        Args:
+            link_idx (int): The index of the link you want to control
+            target_position (3f): The target ee position in xyz
+            target_velocity (xf):
+                The target joint velocity. (Default value = None)
+            max_velocity :
+                The maximal joint velocity. (Default value = None)
+            max_force :
+                The maximal joint force. (Default value = None)
+            position_gain :
+                The position gain. (Default value = None)
+            velocity_gain :
+                The velocity gain. (Default value = None)
+
+        Returns
+        -------
+
+        """
+        ikSolver = 0
+        target_joint_position = pybullet.calculateInverseKinematics(
+            self._arm_id,
+            link_idx,
+            target_position,
+            target_orientation,
+            solver=ikSolver,
+            maxNumIterations=100,
+            residualThreshold=.01,
+            physicsClientId=self._physics_id)
+
+        kwargs = dict()
+        kwargs['bodyIndex'] = self._arm_id
+        kwargs['physicsClientId'] = self._physics_id
+        kwargs['jointIndices'] = range(len(target_joint_position))
+        kwargs['controlMode'] = pybullet.POSITION_CONTROL
+        kwargs['targetPositions'] = target_joint_position
+
+        if target_velocity is not None:
+            kwargs['targetVelocities'] = target_velocity
+
+        if max_velocity is not None:
+            kwargs['maxVelocities'] = max_velocity
+
+        if max_force is not None:
+            kwargs['forces'] = max_force
+
+        if position_gain is not None:
+            kwargs['positionGains'] = position_gain
+
+        if velocity_gain is not None:
+            kwargs['velocityGains'] = velocity_gain
+
+        pybullet.setJointMotorControlArray(**kwargs)
+
+    
     def set_ee_pose_position_control(
             self,
             target_position,
