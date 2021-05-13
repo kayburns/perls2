@@ -60,7 +60,7 @@ object:
       position: [0, 0, 0]
       orientation: [0,0,0]
       is_static: True
-      scale: 0.25
+      scale: 0.2
       default_position: [0.8, 0.0, 0.0]
     
     object_1:

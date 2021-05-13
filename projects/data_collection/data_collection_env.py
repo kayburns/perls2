@@ -33,7 +33,7 @@ class DataCollectionEnv(Env):
         self.peg_interface = self.world.object_interfaces['peg']
         self.hole_interface = self.world.object_interfaces['hole_box']
 
-        self.term_state = "PEG_COMPLETE"
+        self.term_state = None #"PEG_COMPLETE"
 
         #Object Information
         self.BOX_W = 1.0
@@ -56,6 +56,9 @@ class DataCollectionEnv(Env):
 
         self.gripper_base_link = self.robot_interface.get_link_id_from_name('gripper_base_link')
         self.digits.add_camera(self.robot_interface.arm_id, [self.left_joint_idx, self.right_joint_idx])
+
+        self.focus_point_link = self.robot_interface.get_link_id_from_name('focus_point')
+        self.ee_point = self.focus_point_link
 
         self.CONV_RADIUS = 0.05
         self.tacto_add_objects()
@@ -133,19 +136,18 @@ class DataCollectionEnv(Env):
         #print (f"PEG_POS: {self.peg_interface.position}")
         #print (f"GOAL_POS: {goal_position}")
 
-        self.robot_interface.set_link_pose_position_control(self.gripper_base_link, goal_position, self._initial_ee_orn)
-        if self._get_dist_to_goal(self.gripper_base_link, goal_position) <= self.CONV_RADIUS:
+        self.robot_interface.set_link_pose_position_control(self.ee_point, goal_position, self._initial_ee_orn)
+        if self._get_dist_to_goal(self.ee_point, goal_position) <= self.CONV_RADIUS:
             self.curr_state = self.state_dict[self.curr_state]["next"]
 
     def _peg_grab_exec(self):
         print ("PEG_GRAB")
-        goal_height_offset = 0.2
         object_pos = self.peg_interface.position
-        object_pos[2] += self._grab_height_offset() + 0.1
+        object_pos[2] += self._grab_height_offset() #+ 0.1
         goal_position = object_pos
-        self.robot_interface.set_link_pose_position_control(self.gripper_base_link, goal_position, self._initial_ee_orn)
+        self.robot_interface.set_link_pose_position_control(self.ee_point, goal_position, self._initial_ee_orn)
         
-        if self._get_dist_to_goal(self.gripper_base_link, goal_position) <= self.CONV_RADIUS:
+        if self._get_dist_to_goal(self.ee_point, goal_position) <= self.CONV_RADIUS:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             self.robot_interface.set_gripper_to_value(0.4)
@@ -158,22 +160,22 @@ class DataCollectionEnv(Env):
         peg_scale = self.scale_dict["peg"]
 
         goal_position = self._hole_position()
-        goal_position[2] += (peg_scale * self.PEG_H) + (self._grab_height_offset() + 0.1) + (hole_scale * 0.5 * self.BOX_H)
+        goal_position[2] += (peg_scale * self.PEG_H) + (self._grab_height_offset()) + (hole_scale * 0.5 * self.BOX_H)
 
-        goal_delta = self._get_delta_to_goal(self.gripper_base_link, goal_position)
+        goal_delta = self._get_delta_to_goal(self.ee_point, goal_position)
         goal_delta = goal_delta / np.linalg.norm(goal_delta)
 
         move_rate = 0.02
         goal_delta = move_rate * goal_delta
 
-        interim_goal = self.robot_interface.link_position(self.gripper_base_link) + goal_delta
+        interim_goal = self.robot_interface.link_position(self.ee_point) + goal_delta
 
         
 
         #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
-        self.robot_interface.set_link_pose_position_control(self.gripper_base_link, goal_position, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(self.gripper_base_link, goal_position)}")
-        if self._get_dist_to_goal(self.gripper_base_link, goal_position) <= 0.005:
+        self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
+        print (f"GOAL_DIST: {self._get_dist_to_goal(self.ee_point, goal_position)}")
+        if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             #self.robot_interface.set_gripper_to_value(0.5)
@@ -185,9 +187,9 @@ class DataCollectionEnv(Env):
         goal_position = self._hole_position()
         goal_position[2] += 0.05
 
-        self.robot_interface.set_ee_pose_position_control(goal_position, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(goal_position)}")
-        if self._get_dist_to_goal(goal_position) <= 0.05:
+        self.robot_interface.set_link_pose_position_control(self.focus_point_link, goal_position, self._initial_ee_orn)
+        print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
+        if self._get_dist_to_goal(self.focus_point_link, goal_position) <= 0.05:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             self.robot_interface.set_gripper_to_value(0.0)
