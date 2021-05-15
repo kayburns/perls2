@@ -14,9 +14,14 @@
     </material>
 
     <link name="base_link">
+        <contact>
+    	    <friction_anchor/>
+    	    <lateral_friction value="1.0"/>
+            <rolling_friction value="0.005"/>
+            <spinning_friction value="0.005"/>
+        </contact>
         <visual>
             <geometry>
-                <!--cylinder length="0.6" radius="0.2"/-->
                 <box size="1.0 0.4 0.2"/>
             </geometry>
             <material name="blue"/>
@@ -31,6 +36,12 @@
     </link>
 
     <link name="top_short">
+        <contact>
+    	    <friction_anchor/>
+    	    <lateral_friction value="1.0"/>
+            <rolling_friction value="0.005"/>
+            <spinning_friction value="0.005"/>
+        </contact>
         <visual>
             <geometry>
                 <box size="0.4 0.2 0.2"/>
@@ -47,6 +58,12 @@
     </link>
 
     <link name="bottom_short">
+        <contact>
+    	    <friction_anchor/>
+    	    <lateral_friction value="1.0"/>
+            <rolling_friction value="0.005"/>
+            <spinning_friction value="0.005"/>
+        </contact>
         <visual>
             <geometry>
                 <box size="0.4 0.2 0.2"/>
@@ -62,6 +79,12 @@
     </link>
 
     <link name="right_long">
+        <contact>
+    	    <friction_anchor/>
+    	    <lateral_friction value="1.0"/>
+            <rolling_friction value="0.005"/>
+            <spinning_friction value="0.005"/>
+        </contact>
         <visual>
             <geometry>
                 <box size="1.0 0.4 0.2"/>

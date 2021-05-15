@@ -33,7 +33,7 @@ class DataCollectionEnv(Env):
         self.peg_interface = self.world.object_interfaces['peg']
         self.hole_interface = self.world.object_interfaces['hole_box']
 
-        self.term_state = None #"PEG_COMPLETE"
+        self.term_state = None #"PEG_MOVING" #None #"PEG_COMPLETE"
 
         #Object Information
         self.BOX_W = 1.0
@@ -66,6 +66,10 @@ class DataCollectionEnv(Env):
         #Robot Setup
         self.reset_position = self.robot_interface.ee_position
         self._initial_ee_orn = self.robot_interface.ee_orientation
+
+        #Peg and hole initial_positions
+        self.peg_initial_pos = [0, 0, 0]
+        self.hole_initial_pos = [0, 0, 0]
 
     def tacto_add_objects(self):
         """
@@ -102,7 +106,7 @@ class DataCollectionEnv(Env):
     
     def _grab_height_offset(self):
         peg_scale = self.scale_dict["peg"]
-        return 0.5 * peg_scale * self.PEG_H
+        return 0.5 * peg_scale * self.PEG_H #-0.02
 
     def _get_dist_to_goal(self, link_id, goal_position):
         current_ee_pos = np.asarray(self.robot_interface.link_position(link_id))
@@ -123,8 +127,25 @@ class DataCollectionEnv(Env):
             observation (dict): dictionary with key values corresponding to
                 observations of the environment's current state.
 
+            Dict:
+            - cam_color: color output from the camera (np_array)
+            - cam_depth: depth output from the camera (np_array)
+            - digits_depth: depth output from the figertip sensors [np_array, np_array] (one for each finger)
+            - digits_color: color output from the fingertip sensors [np_array, np_array] (one for each finger)
+            - proprio: 7f list of floats of joint positions in radians
         """
-        obs = {}
+        proprio = self.robot_interface.q
+
+        cam_color, cam_depth, segmask, _ = self.world.camera_interface.frames()
+
+        digits_color, digits_depth = self.digits.render()
+        
+        obs = {"cam_color": cam_color, 
+                "cam_depth": cam_depth, 
+                "digits_depth": digits_depth, 
+                "digits_color": digits_color,
+                "proprio": proprio}
+
         return obs
 
     def _peg_setup_exec(self):
@@ -140,6 +161,8 @@ class DataCollectionEnv(Env):
         if self._get_dist_to_goal(self.ee_point, goal_position) <= self.CONV_RADIUS:
             self.curr_state = self.state_dict[self.curr_state]["next"]
 
+        return goal_position
+
     def _peg_grab_exec(self):
         print ("PEG_GRAB")
         object_pos = self.peg_interface.position
@@ -153,6 +176,8 @@ class DataCollectionEnv(Env):
             self.robot_interface.set_gripper_to_value(0.4)
             self.grasped = True
         
+        return goal_position
+        
 
     def _peg_move_exec(self):
         print ("PEG_MOVE")
@@ -160,7 +185,13 @@ class DataCollectionEnv(Env):
         peg_scale = self.scale_dict["peg"]
 
         goal_position = self._hole_position()
-        goal_position[2] += (peg_scale * self.PEG_H) + (self._grab_height_offset()) + (hole_scale * 0.5 * self.BOX_H)
+        peg_z = peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
+
+        #goal_position[2] = self.peg_interface.position[2] + self._grab_height_offset()
+        goal_position[2] = peg_z + self._grab_height_offset() + 0.01
+
+        focus_pos = self.robot_interface.link_position(self.ee_point)
+        #goal_position[2] = focus_pos[2]
 
         goal_delta = self._get_delta_to_goal(self.ee_point, goal_position)
         goal_delta = goal_delta / np.linalg.norm(goal_delta)
@@ -169,31 +200,41 @@ class DataCollectionEnv(Env):
         goal_delta = move_rate * goal_delta
 
         interim_goal = self.robot_interface.link_position(self.ee_point) + goal_delta
-
+        #interim_goal[2] = self.peg_interface.position[2] + self._grab_height_offset()
+        
         
 
         #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
         self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
         print (f"GOAL_DIST: {self._get_dist_to_goal(self.ee_point, goal_position)}")
+
+        focus_pos = self.robot_interface.link_position(self.ee_point)
+        print (f"Self h: {focus_pos[2]} Goal h: {interim_goal[2]}")
+
         if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             #self.robot_interface.set_gripper_to_value(0.5)
             self.grasped = True
+
+        return goal_position
         
 
     def _peg_complete_exec(self):
         print ("PEG_DOWN")
+        peg_scale = self.scale_dict["peg"]
         goal_position = self._hole_position()
-        goal_position[2] += 0.05
+        goal_position[2] += peg_scale * self.PEG_H
 
         self.robot_interface.set_link_pose_position_control(self.focus_point_link, goal_position, self._initial_ee_orn)
         print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
-        if self._get_dist_to_goal(self.focus_point_link, goal_position) <= 0.05:
+        if self._get_dist_to_goal(self.focus_point_link, goal_position) <= 0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             self.robot_interface.set_gripper_to_value(0.0)
             self.grasped = True
+        
+        return goal_position
 
 
     def _exec_action(self, action):
@@ -230,7 +271,8 @@ class DataCollectionEnv(Env):
 
         #Defer to state machine for actions
         exec_method = self.state_dict[self.curr_state]["method"]
-        exec_method()
+        action_pos = exec_method()
+        return action_pos
 
     def _get_table_pos(self):
         table_id = self.world.arena.scene_objects_dict["table"]
@@ -247,14 +289,18 @@ class DataCollectionEnv(Env):
         hole_pos = self.hole_interface.position
 
         hole_pos[2] = (hole_height) + table_pos[2]
+
+        self.hole_initial_pos = hole_pos
         self.hole_interface.set_position(hole_pos)
 
         #Reset the position of the peg
         peg_scale = self.scale_dict["peg"]
         peg_pos = hole_pos
         peg_pos[0] -= (hole_scale * self.BOX_W * 0.5) - (peg_scale * self.PEG_W * 0.5)
+        
         peg_pos[2] += peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
 
+        self.peg_initial_pos = peg_pos
         self.peg_interface.set_position(peg_pos)
         self.peg_interface.set_orientation(p.getQuaternionFromEuler([0, 0, 0]))
         
@@ -309,7 +355,7 @@ class DataCollectionEnv(Env):
         Takes a step forward similar to openAI.gym's implementation.
         """
         action = np.clip(action, self.action_space.low, self.action_space.high)
-        self._exec_action(action)
+        action_pos = self._exec_action(action)
         self.world.step(start)
         self.num_steps = self.num_steps + 1
 
@@ -322,6 +368,7 @@ class DataCollectionEnv(Env):
         reward = self.rewardFunction()
 
         observation = self.get_observation()
+        observation["action_pos"] = action_pos
 
         info = self.info()
 
