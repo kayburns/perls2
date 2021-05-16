@@ -8,7 +8,7 @@ import os
 import pybullet as p
 
 
-class DataCollectionEnv(Env):
+class RandomDataCollectionEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
     """
 
@@ -26,8 +26,7 @@ class DataCollectionEnv(Env):
         self.state_dict = {
                             "PEG_SETUP": {"method": self._peg_setup_exec, "next": "PEG_GRAB"},
                             "PEG_GRAB": {"method": self._peg_grab_exec, "next": "PEG_MOVING"},
-                            "PEG_MOVING": {"method": self._peg_move_exec, "next": "PEG_COMPLETE"},
-                            "PEG_COMPLETE": {"method": self._peg_complete_exec, "next": None},
+                            "PEG_MOVING": {"method": self._random_peg_move_exec, "next": "PEG_COMPLETE"},
                           }
         
         self.peg_interface = self.world.object_interfaces['peg']
@@ -97,7 +96,7 @@ class DataCollectionEnv(Env):
     def should_record(self):
         """Returns whether or not the observations should be recorded for data collection"""
         return (self.curr_state == "PEG_MOVING" or self.curr_state == "PEG_COMPLETE")
-
+        
     def _hole_position(self):
         hole_scale = self.scale_dict["hole_box"]
         box_pos = self.hole_interface.position
@@ -169,7 +168,7 @@ class DataCollectionEnv(Env):
     def _peg_grab_exec(self):
         print ("PEG_GRAB")
         object_pos = self.peg_interface.position
-        object_pos[2] += self._grab_height_offset() #+ 0.1
+        object_pos[2] += self._grab_height_offset()
         goal_position = object_pos
         self.robot_interface.set_link_pose_position_control(self.ee_point, goal_position, self._initial_ee_orn)
         
@@ -182,20 +181,33 @@ class DataCollectionEnv(Env):
         return goal_position
         
 
-    def _peg_move_exec(self):
-        print ("PEG_MOVE")
+    def _peg_goal_dist(self):
         hole_scale = self.scale_dict["hole_box"]
         peg_scale = self.scale_dict["peg"]
 
         goal_position = self._hole_position()
+
+        peg_z = peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
+        goal_position[2] = peg_z + self._grab_height_offset() + 0.01
+
+        return self._get_dist_to_goal(self.ee_point, goal_position)
+    
+    def _random_peg_move_exec(self):
+        hole_scale = self.scale_dict["hole_box"]
+        peg_scale = self.scale_dict["peg"]
+        box_side_w = 0.5 * (self.BOX_W - self.HOLE_W)
+
+        x_range = hole_scale * 0.5 * self.BOX_W - 0.5 * peg_scale * self.PEG_W
+        y_range = hole_scale * 0.5 * box_side_w - peg_scale * 0.5 * self.PEG_W
+
         peg_z = peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
 
-        #goal_position[2] = self.peg_interface.position[2] + self._grab_height_offset()
-        goal_position[2] = peg_z + self._grab_height_offset() + 0.02
+        hole_pos = self.hole_interface.position
 
-        focus_pos = self.robot_interface.link_position(self.ee_point)
-        #goal_position[2] = focus_pos[2]
-
+        goal_position = [hole_pos[0] + np.random.uniform(-1.0 * x_range, x_range), 
+                    hole_pos[1] + np.random.uniform(-1.0 * y_range, y_range), 
+                    peg_z + self._grab_height_offset() + 0.01]
+        
         goal_delta = self._get_delta_to_goal(self.ee_point, goal_position)
         goal_delta = goal_delta / np.linalg.norm(goal_delta)
 
@@ -203,41 +215,13 @@ class DataCollectionEnv(Env):
         goal_delta = move_rate * goal_delta
 
         interim_goal = self.robot_interface.link_position(self.ee_point) + goal_delta
-        #interim_goal[2] = self.peg_interface.position[2] + self._grab_height_offset()
-        
-        
-
-        #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
+        print (f"INTERIM_GOAL: {goal_position}")
         self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(self.ee_point, goal_position)}")
-
-        focus_pos = self.robot_interface.link_position(self.ee_point)
-        print (f"Self h: {focus_pos[2]} Goal h: {interim_goal[2]}")
-
-        if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.01: #0.005:
-            self.curr_state = self.state_dict[self.curr_state]["next"]
-        
-            #self.robot_interface.set_gripper_to_value(0.5)
-            self.grasped = True
 
         return interim_goal
-        
 
-    def _peg_complete_exec(self):
-        print ("PEG_DOWN")
-        peg_scale = self.scale_dict["peg"]
-        goal_position = self._hole_position() 
-        goal_position[2] += peg_scale * self.PEG_H + self._grab_height_offset()
 
-        self.robot_interface.set_link_pose_position_control(self.focus_point_link, goal_position, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
-        if self._get_dist_to_goal(self.focus_point_link, goal_position) <= 0.005:
-            self.curr_state = self.state_dict[self.curr_state]["next"]
-        
-            self.robot_interface.set_gripper_to_value(0.0)
-            self.grasped = True
-        
-        return goal_position
+   
 
 
     def _exec_action(self, action):
@@ -310,7 +294,7 @@ class DataCollectionEnv(Env):
 
         y_range = hole_scale * 0.5 * box_side_w - peg_scale * 0.5 * self.PEG_W
 
-        peg_pos[1] += np.random.randint(1, 2, size=None) * hole_scale * (box_side_w + self.HOLE_W) + np.random.uniform(-1.0 * y_range, y_range)
+        peg_pos[1] += np.random.randint(0, 2, size=None) * hole_scale * (box_side_w + self.HOLE_W) + np.random.uniform(-1.0 * y_range, y_range)
 
         peg_pos[2] += peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
 
@@ -417,6 +401,7 @@ class DataCollectionEnv(Env):
         obs_arr = [pre_action_obs, post_action_observation, action_pos]
         return obs_arr, reward, termination, info
 
+    
     def _check_termination(self):
         """ Query state of environment to check termination condition
 
@@ -431,6 +416,9 @@ class DataCollectionEnv(Env):
             return True
         else:
             if self.curr_state == self.term_state:
+                return True
+            if self._peg_goal_dist() <= 0.01:
+                #End if the peg is close to/over the goal
                 return True
             return False
 

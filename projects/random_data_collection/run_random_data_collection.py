@@ -2,7 +2,7 @@
 """
 from __future__ import division
 import time
-from data_collection_env import DataCollectionEnv
+from random_data_collection_env import RandomDataCollectionEnv
 import logging
 import pybullet as p
 from PIL import Image
@@ -24,7 +24,7 @@ def record_obs(observation):
     color_before = observation[0]["cam_color"]
     color_imgs.append(Image.fromarray(color_before))
 
-env = DataCollectionEnv('projects/data_collection/data_collection.yaml', True, "TemplateEnv")
+env = RandomDataCollectionEnv('projects/random_data_collection/random_data_collection.yaml', True, "TemplateEnv")
 
 for ep_num in range(10):
     logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')
@@ -49,7 +49,7 @@ for ep_num in range(10):
         print(f"Color_shape: {color[1].shape} Depth_shape: {depth[1].shape}")
 
         done = termination
-        time.sleep(0.1)
+        #time.sleep(0.5)
 
 
 color_imgs[0].save(GIF_SAVE_LOCATION, save_all=True, append_images=color_imgs[1:], optimize=False, duration=40, loop=0)
