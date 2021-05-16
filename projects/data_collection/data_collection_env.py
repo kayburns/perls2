@@ -136,12 +136,11 @@ class DataCollectionEnv(Env):
         """
         proprio = self.robot_interface.q
 
-        cam_color, cam_depth, segmask, _ = self.world.camera_interface.frames()
-
+        cam_frames = self.world.camera_interface.frames()
         digits_color, digits_depth = self.digits.render()
         
-        obs = {"cam_color": cam_color, 
-                "cam_depth": cam_depth, 
+        obs = {"cam_color": cam_frames["rgb"], 
+                "cam_depth": cam_frames["depth"], 
                 "digits_depth": digits_depth, 
                 "digits_color": digits_color,
                 "proprio": proprio}
