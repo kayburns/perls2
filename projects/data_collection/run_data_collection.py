@@ -18,7 +18,7 @@ def get_action(observation):
 env = DataCollectionEnv('projects/data_collection/data_collection.yaml', True, "TemplateEnv")
 
 
-for ep_num in range(1):
+for ep_num in range(10):
     logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')
     step = 0
     observation = env.reset()

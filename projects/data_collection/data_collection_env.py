@@ -211,7 +211,7 @@ class DataCollectionEnv(Env):
         focus_pos = self.robot_interface.link_position(self.ee_point)
         print (f"Self h: {focus_pos[2]} Goal h: {interim_goal[2]}")
 
-        if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.005:
+        if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.01: #0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
             #self.robot_interface.set_gripper_to_value(0.5)
@@ -223,8 +223,8 @@ class DataCollectionEnv(Env):
     def _peg_complete_exec(self):
         print ("PEG_DOWN")
         peg_scale = self.scale_dict["peg"]
-        goal_position = self._hole_position()
-        goal_position[2] += peg_scale * self.PEG_H
+        goal_position = self._hole_position() 
+        goal_position[2] += peg_scale * self.PEG_H + self._grab_height_offset()
 
         self.robot_interface.set_link_pose_position_control(self.focus_point_link, goal_position, self._initial_ee_orn)
         print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
@@ -280,13 +280,19 @@ class DataCollectionEnv(Env):
             table_id, self.world._physics_id)
         return table_pos
 
-    def _reset_objects(self):
+
+    def _random_reset_objects(self):
         table_pos = self._get_table_pos()
+
+        box_side_w = 0.5 * (self.BOX_W - self.HOLE_W)
 
         #Reset the position of the hole
         hole_scale = self.scale_dict["hole_box"]
         hole_height = hole_scale * self.BOX_H
         hole_pos = self.hole_interface.position
+
+        hole_pos = np.random.uniform(low=[0.6, -0.2, 0.0], high=[0.9, 0.2, 0.0])
+        #hole_pos = np.random.multivariate_normal([0.8, 0.0, 0.0], hole_scale * 0.05 * np.eye(3))
 
         hole_pos[2] = (hole_height) + table_pos[2]
 
@@ -296,7 +302,37 @@ class DataCollectionEnv(Env):
         #Reset the position of the peg
         peg_scale = self.scale_dict["peg"]
         peg_pos = hole_pos
-        peg_pos[0] -= (hole_scale * self.BOX_W * 0.5) - (peg_scale * self.PEG_W * 0.5)
+        x_range = hole_scale * 0.5 * self.BOX_W - 0.5 * peg_scale * self.PEG_W
+        peg_pos[0] -= np.random.uniform(-1.0 * x_range, x_range, size=None)
+
+        y_range = hole_scale * 0.5 * box_side_w - peg_scale * 0.5 * self.PEG_W
+
+        peg_pos[1] += np.random.randint(0, 1, size=None) * hole_scale * (box_side_w + self.HOLE_W) + np.random.uniform(-1.0 * y_range, y_range)
+
+        peg_pos[2] += peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
+
+        self.peg_initial_pos = peg_pos
+        self.peg_interface.set_position(peg_pos)
+        self.peg_interface.set_orientation(p.getQuaternionFromEuler([0, 0, 0]))
+
+    def _reset_objects(self):
+        table_pos = self._get_table_pos()
+
+        #Reset the position of the hole
+        hole_scale = self.scale_dict["hole_box"]
+        hole_height = hole_scale * self.BOX_H
+        #hole_pos = self.hole_interface.position
+        hole_pos = np.array([0.9, -0.2, 0.0])
+
+        hole_pos[2] = (hole_height) + table_pos[2]
+
+        self.hole_initial_pos = hole_pos
+        self.hole_interface.set_position(hole_pos)
+
+        #Reset the position of the peg
+        peg_scale = self.scale_dict["peg"]
+        peg_pos = hole_pos
+        peg_pos[0] += (hole_scale * self.BOX_W * 0.5) - (peg_scale * self.PEG_W * 0.5)
         
         peg_pos[2] += peg_scale * self.PEG_H * 0.5 + hole_scale * self.BOX_H * 0.5
 
@@ -334,7 +370,8 @@ class DataCollectionEnv(Env):
 
         observation = self.get_observation()
 
-        self._reset_objects()
+        #self._reset_objects()
+        self._random_reset_objects()
 
         self.robot_interface.set_gripper_to_value(0.0)
         self.curr_state = self.state_list[0]
