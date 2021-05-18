@@ -15,7 +15,8 @@ def get_action(observation):
     return action
 
 
-env = BaselinePegInsertEnv('projects/baseline_peg_insert/baseline_peg_insert.yaml', True, "TemplateEnv")
+import pdb; pdb.set_trace()
+env = BaselinePegInsertEnv('projects/baseline_peg_insert/baseline_peg_insert.yaml', False, "TemplateEnv")
 
 for ep_num in range(10):
     logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')

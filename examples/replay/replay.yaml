@@ -76,7 +76,6 @@ sensor:
           lower: 10
           upper: 150
 
-<<<<<<< HEAD
 controller:
   selected_type: 'EEImpedance' # Choose between 'EEImpedance', 'JointVelocity'
   Bullet:
@@ -96,8 +95,6 @@ controller:
       type: 'linear'
       order: 3
 
-=======
->>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
 object:
   object_dict:
     object_0:
@@ -107,19 +104,11 @@ object:
         1
       path:
         'objects/ycb/013_apple/google_16k/textured.urdf'
-<<<<<<< HEAD
-      pose: [[1.5, 0, 0], [0,0,0]]
-      is_static: True
-      scale: 1.0
-      default_position: [0.7, 0.1, 0.03] #z  = 0.1
-#  default_position: [0.7, 0.1, 0.03] #z  = 0.1
-=======
       pose: [1.5, 0, 0]
       orientation: [0, 0, 0 ]
       is_static: True
       scale: 1.0
       default_position: [0.7, 0.1, 0.03] #z  = 0.1
->>>>>>> a88f70b5d8b82f9c3a02cb0b1bca5f90c2c79746
   random:
     randomize: True
     position:
