@@ -85,14 +85,14 @@ class DataCollectionEnv(Env):
             object_name = self.config["object"]["object_dict"][obj_key]["name"]
             object_path = self.config["object"]["object_dict"][obj_key]["path"]
             scale = self.config["object"]["object_dict"][obj_key]["scale"]
-            print (f"Object Path: {object_path}")
+            #print (f"Object Path: {object_path}")
             
             object_path = os.path.join(data_dir, object_path)
             pb_obj_id = self.world.arena.object_dict[object_name]
 
             self.scale_dict[object_name] = scale
             self.digits.add_object(object_path, pb_obj_id, globalScaling=scale)
-            print (f"DIGIT ADDED: {object_name}")
+            #print (f"DIGIT ADDED: {object_name}")
 
     def should_record(self):
         """Returns whether or not the observations should be recorded for data collection"""
@@ -152,7 +152,7 @@ class DataCollectionEnv(Env):
         return obs
 
     def _peg_setup_exec(self):
-        print ("PEG_SETUP")
+        #print ("PEG_SETUP")
         object_pos = self.peg_interface.position
         object_pos[2] += 0.3 #self._grab_height_offset() + 0.1
         goal_position = object_pos
@@ -167,7 +167,7 @@ class DataCollectionEnv(Env):
         return goal_position
 
     def _peg_grab_exec(self):
-        print ("PEG_GRAB")
+        #print ("PEG_GRAB")
         object_pos = self.peg_interface.position
         object_pos[2] += self._grab_height_offset() #+ 0.1
         goal_position = object_pos
@@ -183,7 +183,7 @@ class DataCollectionEnv(Env):
         
 
     def _peg_move_exec(self):
-        print ("PEG_MOVE")
+        #print ("PEG_MOVE")
         hole_scale = self.scale_dict["hole_box"]
         peg_scale = self.scale_dict["peg"]
 
@@ -209,10 +209,10 @@ class DataCollectionEnv(Env):
 
         #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
         self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(self.ee_point, goal_position)}")
+        #print (f"GOAL_DIST: {self._get_dist_to_goal(self.ee_point, goal_position)}")
 
         focus_pos = self.robot_interface.link_position(self.ee_point)
-        print (f"Self h: {focus_pos[2]} Goal h: {interim_goal[2]}")
+        #print (f"Self h: {focus_pos[2]} Goal h: {interim_goal[2]}")
 
         if self._get_dist_to_goal(self.ee_point, goal_position) <= 0.01: #0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
@@ -224,7 +224,7 @@ class DataCollectionEnv(Env):
         
 
     def _peg_complete_exec(self):
-        print ("PEG_DOWN")
+        #print ("PEG_DOWN")
         peg_scale = self.scale_dict["peg"]
         goal_position = self._hole_position() 
         goal_position[2] += peg_scale * self.PEG_H + self._grab_height_offset()
