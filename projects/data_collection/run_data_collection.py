@@ -9,6 +9,7 @@ from PIL import Image
 import os
 import numpy as np
 from util import DatasetUtils
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -16,6 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 GIF_SAVE_LOCATION = "/home/mason/before_output.gif"
 FOLDER_NAME = "example_"
 DATASET_LOC = "/home/mason/peg_insertation_dataset/heuristic_data_2/"
+EPISODE_COUNT = 100
 
 observations_arr = []
 example_count = 0
@@ -33,8 +35,8 @@ def record_obs(observation):
 env = DataCollectionEnv('projects/data_collection/data_collection.yaml', True, "TemplateEnv")
 dt_util = DatasetUtils(dataset_loc=DATASET_LOC, folder_name=FOLDER_NAME)
 
-for ep_num in range(1):
-    logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')
+for ep_num in tqdm(range(EPISODE_COUNT)):
+    #logging.debug('episode ' + str(ep_num - 1) + ' complete...pausing...')
     step = 0
     observation = env.reset()
     done = False
@@ -57,7 +59,7 @@ for ep_num in range(1):
         color, depth = env.digits.render()
         env.digits.updateGUI(color, depth)
         
-        print(f"Color_shape: {color[1].shape} Depth_shape: {depth[1].shape}")
+        #print(f"Color_shape: {color[1].shape} Depth_shape: {depth[1].shape}")
 
         done = termination
 

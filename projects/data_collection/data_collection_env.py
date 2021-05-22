@@ -230,7 +230,7 @@ class DataCollectionEnv(Env):
         goal_position[2] += peg_scale * self.PEG_H + self._grab_height_offset()
 
         self.robot_interface.set_link_pose_position_control(self.focus_point_link, goal_position, self._initial_ee_orn)
-        print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
+        #print (f"GOAL_DIST: {self._get_dist_to_goal(self.focus_point_link, goal_position)}")
         if self._get_dist_to_goal(self.focus_point_link, goal_position) <= 0.005:
             self.curr_state = self.state_dict[self.curr_state]["next"]
         
