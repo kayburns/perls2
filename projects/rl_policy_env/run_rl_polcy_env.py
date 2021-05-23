@@ -2,7 +2,7 @@
 """
 from __future__ import division
 import time
-from data_collection_env import DataCollectionEnv
+from rl_policy_env import RLPolicyEnv
 import logging
 import pybullet as p
 from PIL import Image
@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 GIF_SAVE_LOCATION = "/home/mason/before_output.gif"
 FOLDER_NAME = "example_"
 DATASET_LOC = "/home/mason/peg_insertation_dataset/heuristic_data_2/"
-EPISODE_COUNT = 100
+EPISODE_COUNT = 1
 
 observations_arr = []
 example_count = 0
@@ -32,7 +32,7 @@ def get_action(observation):
 def record_obs(observation):
     observations_arr.append(observation)
 
-env = DataCollectionEnv('projects/data_collection/data_collection.yaml', False, "TemplateEnv")
+env = RLPolicyEnv('projects/rl_policy_env/rl_policy.yaml', use_visualizer=False, name="TemplateEnv")
 dt_util = DatasetUtils(dataset_loc=DATASET_LOC, folder_name=FOLDER_NAME)
 
 for ep_num in tqdm(range(EPISODE_COUNT)):
@@ -41,23 +41,20 @@ for ep_num in tqdm(range(EPISODE_COUNT)):
     observation = env.reset()
     done = False
 
+    observation = reward = termination = None
+
     while not done:
         start = time.time()
-        action = get_action(observation)
-
-        
-        # Pass the start time to enforce policy frequency.
-        observation, reward, termination, info = env.step(action, start=start)
-
         if env.should_record():
-            record_obs(observation)
+            action = get_action(observation)
+            observation, reward, termination, info = env.step(action, start=start)
             example_count += 1
-    
-        if ep_num % 100 == 0:
-            dt_util.save_obs(observations_arr)
-            observations_arr = []
-        color, depth = env.digits.render()
-        env.digits.updateGUI(color, depth)
+        else:
+            #Do Nothing While environment is being setup
+            observation, reward, termination, info = env.step([0.0, 0.0, 0.0], start=start)
+        
+        #color, depth = env.digits.render()
+        #env.digits.updateGUI(color, depth)
         
         #print(f"Color_shape: {color[1].shape} Depth_shape: {depth[1].shape}")
 

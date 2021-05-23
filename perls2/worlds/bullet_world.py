@@ -86,8 +86,10 @@ class BulletWorld(World):
         # Connect to appropriate pybullet channel based on use_visualizer flag
         self.use_visualizer = use_visualizer
         if self.use_visualizer:
+            print ("==================USING_VISUALIZER!!!!!=====================")
             self._physics_id = pybullet.connect(pybullet.GUI)
         else:
+            print ("==============NOT USING VISUALIZER!!!!=================")
             self._physics_id = pybullet.connect(pybullet.DIRECT)
 
         logging.info("New PhysicsID: " + str(self._physics_id))
