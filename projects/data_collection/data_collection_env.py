@@ -273,8 +273,12 @@ class DataCollectionEnv(Env):
             pass
 
         #Defer to state machine for actions
+        pre_action_ee_pos = np.asarray(self.robot_interface.link_position(self.focus_point_link))
         exec_method = self.state_dict[self.curr_state]["method"]
         action_pos = exec_method()
+
+        post_action_ee_pos = np.asarray(self.robot_interface.link_position(self.focus_point_link))
+        pos_delta = post_action_ee_pos - pre_action_ee_pos
         return action_pos
 
     def _get_table_pos(self):
