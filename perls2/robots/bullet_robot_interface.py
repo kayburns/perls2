@@ -711,7 +711,17 @@ class BulletRobotInterface(RobotInterface):
 
         return np.asarray(angular)[:, :7]
 
-    def link_position(self, link_index):
+    def link_position(self, link_index, computeVelocity=False):
+        """Return the position and velocity (if specified) as a list
+        [x, y, z, v_x, v_y, v_z]
+        """
+        if computeVelocity == True:
+            link_info = pybullet.getLinkState(self._arm_id, link_index, 
+                                                computeLinkVelocity=True,
+                                                computeForwardKinematics=1,
+                                                physicsClientId=self._physics_id)
+            return (list(link_info[0])) + (list(link_info[6])) + (list(link_info[7]))
+        
         link_position, _, _, _, _, _, = pybullet.getLinkState(
             self._arm_id,
             link_index,

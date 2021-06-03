@@ -6,7 +6,14 @@ import tacto
 import logging
 import os
 import pybullet as p
+import gym.spaces as spaces
+import torch
+import sys
 
+#sys.path.append('/home/mason/multimodal_tacto_repo/multimodal/')
+from models.tacto_sensor_fusion import SensorFusionSelfSupervised
+
+FEATURE_LEN = 128
 
 class RLPolicyEnv(Env):
     """The class for Pybullet Sawyer Robot environments performing a reach task.
@@ -62,6 +69,9 @@ class RLPolicyEnv(Env):
         self.PLANAR_RADIUS = self.CONV_RADIUS
         self.GOAL_RADIUS = self.PLANAR_RADIUS * 0.1
 
+        self.FAIL_RADIUS = 0.2
+        self.PEG_GRIP_MAX_DIST = 0.15
+
         self.tacto_add_objects()
 
         #Robot Setup
@@ -71,6 +81,32 @@ class RLPolicyEnv(Env):
         #Peg and hole initial_positions
         self.peg_initial_pos = [0, 0, 0]
         self.hole_initial_pos = [0, 0, 0]
+
+        self.observation_space = spaces.Box(np.full((FEATURE_LEN), -np.inf), np.full((FEATURE_LEN), np.inf), dtype=np.float32)
+
+
+        #Torch Initialization
+        self.device = torch.device("cuda")
+        self.z_dim = 128
+        self.action_dim = 3
+        self.model = SensorFusionSelfSupervised(
+            device=self.device,
+            encoder=False,
+            deterministic=False,
+            z_dim=self.z_dim,
+            action_dim=self.action_dim,
+        ).to(self.device)
+
+
+        self.model_path = '/home/mason/multimodal_tacto_rep/multimodal/no_tacto_logging/models/weights_itr_49.ckpt' #'/home/mason/multimodal_tacto_rep/multimodal/logging/202105312206_/models/weights_itr_48.ckpt'
+
+        self.load_model(self.model_path)
+
+    def load_model(self, path):
+        print("Loading model from {}...".format(path))
+        ckpt = torch.load(path)
+        self.model.load_state_dict(ckpt)
+        self.model.eval()
 
     def tacto_add_objects(self):
         """
@@ -86,14 +122,14 @@ class RLPolicyEnv(Env):
             object_name = self.config["object"]["object_dict"][obj_key]["name"]
             object_path = self.config["object"]["object_dict"][obj_key]["path"]
             scale = self.config["object"]["object_dict"][obj_key]["scale"]
-            #print (f"Object Path: {object_path}")
+            print (f"Object Path: {object_path}")
             
             object_path = os.path.join(data_dir, object_path)
             pb_obj_id = self.world.arena.object_dict[object_name]
 
             self.scale_dict[object_name] = scale
             self.digits.add_object(object_path, pb_obj_id, globalScaling=scale)
-            #print (f"DIGIT ADDED: {object_name}")
+            print (f"DIGIT ADDED: {object_name}")
 
     def should_record(self):
         """Returns whether or not the observations should be recorded for data collection"""
@@ -125,6 +161,27 @@ class RLPolicyEnv(Env):
         diff = (goal_position - current_ee_pos)
         return diff
     
+    def model_encode(self, img, depth, tacto_clr, tacto_depth, proprio):
+        mdl_img = torch.from_numpy(np.expand_dims(img, axis=0).astype(np.float32)).to(self.device)
+        #print (f"depth_shape: {torch.from_numpy(np.expand_dims(depth, axis=0)).shape}")
+
+        mdl_depth = np.expand_dims(depth, axis=2)
+        mdl_depth = np.expand_dims(mdl_depth, axis=0).astype(np.float32)
+
+        mdl_depth = torch.from_numpy(mdl_depth).transpose(1, 3).transpose(2, 3).to(self.device)
+        mdl_tacto_clr = torch.from_numpy(np.expand_dims(tacto_clr, axis=0).astype(np.float32)).to(self.device)
+
+        mdl_tacto_depth = np.expand_dims(tacto_depth, axis=3)
+        mdl_tacto_depth = np.expand_dims(mdl_tacto_depth, axis=0).astype(np.float32)
+
+        mdl_tacto_depth = torch.from_numpy(mdl_tacto_depth).to(self.device)
+        mdl_proprio = torch.from_numpy(np.expand_dims(proprio, axis=0).astype(np.float32)).to(self.device)
+
+        op = self.model.forward_encoder(mdl_img, mdl_tacto_clr, mdl_tacto_depth, mdl_proprio, mdl_depth, None)
+
+        #print (f"output: {op}")
+        return op
+        
     def get_observation(self):
         """Get observation of current env state
 
@@ -139,18 +196,24 @@ class RLPolicyEnv(Env):
             - digits_color: color output from the fingertip sensors [np_array, np_array] (one for each finger)
             - proprio: 7f list of floats of joint positions in radians
         """
-        proprio = self.robot_interface.q
-
+        #proprio = self.robot_interface.q
+        proprio = self.robot_interface.link_position(self.focus_point_link, computeVelocity=True)[:8]
         cam_frames = self.world.camera_interface.frames()
         digits_color, digits_depth = self.digits.render()
         
+        
         obs = {"cam_color": cam_frames["rgb"], 
                 "cam_depth": cam_frames["depth"], 
-                "digits_depth": digits_depth, 
-                "digits_color": digits_color,
+                "digits_depth": 0 * digits_depth, 
+                "digits_color": 0 * digits_color,
                 "proprio": proprio}
 
-        return obs
+        #print(f"===================HERE===========")
+        _, _, _, _, _, z, = self.model_encode(cam_frames["rgb"], cam_frames["depth"], digits_color, digits_depth, proprio)
+        #print (f"output: {type(z)}")
+
+        out_vec = z.cpu().detach().numpy()[0]
+        return out_vec
 
     def _peg_setup_exec(self):
         #print ("PEG_SETUP")
@@ -189,6 +252,21 @@ class RLPolicyEnv(Env):
 
         return self._get_dist_to_goal(self.focus_point_link, goal_position)
 
+    def _peg_grip_distance(self):
+        peg_scale = self.scale_dict["peg"]
+        grip_position = self.robot_interface.link_position(self.focus_point_link)
+        peg_position = self.peg_interface.position
+
+        dist = np.linalg.norm((grip_position - peg_position))
+        return dist
+    
+    def _peg_in_grasp(self):
+        peg_grip_dist = self._peg_grip_distance()
+        if self.curr_state != self.term_state:
+            return True
+        return peg_grip_dist <= self.PEG_GRIP_MAX_DIST
+
+        
     def _exec_action(self, action):
         """Applies the given action to the environment.
 
@@ -226,7 +304,10 @@ class RLPolicyEnv(Env):
             exec_method = self.state_dict[self.curr_state]["method"]
             exec_method()
         else:
-            self.robot_interface.set_link_pose_position_control(self.focus_point_link, action, self._initial_ee_orn)
+            move_delta = action
+            curr_position = self.robot_interface.link_position(self.focus_point_link)[:3]
+            new_position = curr_position + action
+            self.robot_interface.set_link_pose_position_control(self.focus_point_link, new_position, self._initial_ee_orn)
 
     def _get_table_pos(self):
         table_id = self.world.arena.scene_objects_dict["table"]
@@ -330,7 +411,7 @@ class RLPolicyEnv(Env):
         self.robot_interface.set_gripper_to_value(0.0)
         self.curr_state = self.state_list[0]
 
-        return np.array([0.0, 0.0, 0.0], dtype=np.float32)
+        return observation #np.zeros((FEATURE_LEN), np.float32)
 
     def step(self, action, start=None):
         """Take a step.
@@ -346,8 +427,6 @@ class RLPolicyEnv(Env):
         Observation: [(frames before action was taken), (frames after action was taken), action]
         Takes a step forward similar to openAI.gym's implementation.
         """
-        pre_action_obs = self.get_observation()
-
         action = np.clip(action, self.action_space.low, self.action_space.high)
         self._exec_action(action)
         
@@ -364,9 +443,12 @@ class RLPolicyEnv(Env):
 
         info = self.info()
 
+        post_action_obs = self.get_observation()
+
         #This is a placeholder for the learned multimodal representation
-        obs_palceholder = np.zeros(shape=(3), dtype=np.float32)
-        return obs_palceholder, reward, termination, info
+        obs_palceholder = np.zeros((FEATURE_LEN), np.float32)
+
+        return post_action_obs, reward, termination, info
 
     def _check_termination(self):
         """ Query state of environment to check termination condition
@@ -380,8 +462,15 @@ class RLPolicyEnv(Env):
         """
         if (self.num_steps > self.MAX_STEPS):
             return True
+        if (self.curr_state != self.term_state):
+            return False
         else:
-            if self._peg_hole_distance() <= self.GOAL_RADIUS:
+            peg_hole_dist = self._peg_hole_distance()
+            if peg_hole_dist <= self.GOAL_RADIUS or peg_hole_dist > self.FAIL_RADIUS:
+                #print ("================out of bounds trip=================")
+                return True
+            if self._peg_in_grasp() == False:
+                #print ("=============out of grasp trip==============")
                 return True
             return False
 
@@ -417,18 +506,33 @@ class RLPolicyEnv(Env):
 
         rel_delta = np.abs(goal_delta)
 
-        x_re = (1 - np.tanh(rel_delta[0]))
-        y_re = (1 - np.tanh(rel_delta[1]))
-        z_re = 0.0
+        xy_dist = np.linalg.norm(rel_delta[:2])
+        full_dist = np.linalg.norm(rel_delta)
 
-        planar_dist = np.linalg.norm(rel_delta[:2])
-        if planar_dist <= self.PLANAR_RADIUS:
-            z_re = (1 - np.tanh(rel_delta[2]))
+        lam = 0.1
+        cr = 5
+        reach_reward = cr - (0.5 * cr) * (np.tanh(lam *full_dist) + np.tanh(lam * xy_dist))
+        z_thresh = 0.05
+        #x_re = (1 - np.tanh(rel_delta[0]))
+        #y_re = (1 - np.tanh(rel_delta[1]))
+        #z_re = 0.0
+        al_reward = 0.0
+        in_reward = 0.0
+        insertion_happened = 0.0
+        #planar_dist = np.linalg.norm(rel_delta[:2])
+        if xy_dist <= self.PLANAR_RADIUS:
+            ca = 0.2
+            al_reward = 2 - ca * xy_dist
 
+            if rel_delta[2] < z_thresh:
+                in_reward = 4 - 2 * (rel_delta[2] / (self._grab_height_offset()))
             if np.linalg.norm(goal_delta) <= self.GOAL_RADIUS:
                 #Insertion Happened
-                z_re += 1.0
+                insertion_happened += 10
 
-        insertion_reward = x_re + y_re + z_re
+        insertion_reward = reach_reward + al_reward + in_reward + insertion_happened
         
-        return insertion_reward
+        #print (f"Reward: {insertion_reward}")
+
+        peg_grasp_float = float(self._peg_in_grasp())
+        return peg_grasp_float * insertion_reward

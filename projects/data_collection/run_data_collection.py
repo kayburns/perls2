@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 GIF_SAVE_LOCATION = "/home/mason/before_output.gif"
 FOLDER_NAME = "example_"
-DATASET_LOC = "/home/mason/peg_insertation_dataset/heuristic_data_2/"
-EPISODE_COUNT = 100
+DATASET_LOC = "/home/mason/peg_insertation_dataset/heuristic_data_contact_2/"
+EPISODE_COUNT = 1000
 
 observations_arr = []
 example_count = 0
@@ -32,7 +32,7 @@ def get_action(observation):
 def record_obs(observation):
     observations_arr.append(observation)
 
-env = DataCollectionEnv('projects/data_collection/data_collection.yaml', False, "TemplateEnv")
+env = DataCollectionEnv('projects/data_collection/data_collection.yaml', True, "TemplateEnv")
 dt_util = DatasetUtils(dataset_loc=DATASET_LOC, folder_name=FOLDER_NAME)
 
 for ep_num in tqdm(range(EPISODE_COUNT)):
@@ -56,8 +56,9 @@ for ep_num in tqdm(range(EPISODE_COUNT)):
         if ep_num % 100 == 0:
             dt_util.save_obs(observations_arr)
             observations_arr = []
-        color, depth = env.digits.render()
-        env.digits.updateGUI(color, depth)
+        
+        #color, depth = env.digits.render()
+        #env.digits.updateGUI(color, depth)
         
         #print(f"Color_shape: {color[1].shape} Depth_shape: {depth[1].shape}")
 

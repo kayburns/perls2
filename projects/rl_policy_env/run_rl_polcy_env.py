@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG)
 GIF_SAVE_LOCATION = "/home/mason/before_output.gif"
 FOLDER_NAME = "example_"
 DATASET_LOC = "/home/mason/peg_insertation_dataset/heuristic_data_2/"
-EPISODE_COUNT = 1
+EPISODE_COUNT = 100
 
 observations_arr = []
 example_count = 0

@@ -137,7 +137,9 @@ class RandomDataCollectionEnv(Env):
             - digits_color: color output from the fingertip sensors [np_array, np_array] (one for each finger)
             - proprio: 7f list of floats of joint positions in radians
         """
-        proprio = self.robot_interface.q
+        #proprio = self.robot_interface.q
+        proprio = self.robot_interface.link_position(self.focus_point_link, computeVelocity=True)
+        #print (f"proprio: {proprio}")
 
         cam_frames = self.world.camera_interface.frames()
         digits_color, digits_depth = self.digits.render()
@@ -148,10 +150,11 @@ class RandomDataCollectionEnv(Env):
                 "digits_color": digits_color,
                 "proprio": proprio}
 
+        
         return obs
 
     def _peg_setup_exec(self):
-        print ("PEG_SETUP")
+        #print ("PEG_SETUP")
         object_pos = self.peg_interface.position
         object_pos[2] += 0.3 #self._grab_height_offset() + 0.1
         goal_position = object_pos
@@ -166,7 +169,7 @@ class RandomDataCollectionEnv(Env):
         return goal_position
 
     def _peg_grab_exec(self):
-        print ("PEG_GRAB")
+        #print ("PEG_GRAB")
         object_pos = self.peg_interface.position
         object_pos[2] += self._grab_height_offset()
         goal_position = object_pos
@@ -215,7 +218,7 @@ class RandomDataCollectionEnv(Env):
         goal_delta = move_rate * goal_delta
 
         interim_goal = self.robot_interface.link_position(self.ee_point) + goal_delta
-        print (f"INTERIM_GOAL: {goal_position}")
+        #print (f"INTERIM_GOAL: {goal_position}")
         self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
 
         return interim_goal
@@ -257,9 +260,18 @@ class RandomDataCollectionEnv(Env):
             pass
 
         #Defer to state machine for actions
+        pre_action_ee_pos = np.asarray(self.robot_interface.link_position(self.focus_point_link))
         exec_method = self.state_dict[self.curr_state]["method"]
         action_pos = exec_method()
-        return action_pos
+
+        post_action_ee_pos = np.asarray(self.robot_interface.link_position(self.focus_point_link))
+        pos_delta = post_action_ee_pos - pre_action_ee_pos
+
+        return pos_delta #action_pos
+
+    def _peg_touching_box(self):
+        contact_list = p.getContactPoints(self.peg_interface.obj_id, self.hole_interface.obj_id)
+        return len(contact_list) > 0
 
     def _get_table_pos(self):
         table_id = self.world.arena.scene_objects_dict["table"]
@@ -394,11 +406,15 @@ class RandomDataCollectionEnv(Env):
 
         reward = self.rewardFunction()
 
+        #print (f"PEG_CONTACT: {self._peg_touching_box()}")
+        
+        peg_contact_bool = self._peg_touching_box()
+
         post_action_observation = self.get_observation()
 
         info = self.info()
 
-        obs_arr = [pre_action_obs, post_action_observation, action_pos]
+        obs_arr = [pre_action_obs, post_action_observation, action_pos, peg_contact_bool]
         return obs_arr, reward, termination, info
 
     

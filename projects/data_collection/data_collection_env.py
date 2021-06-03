@@ -124,6 +124,10 @@ class DataCollectionEnv(Env):
         diff = (goal_position - current_ee_pos)
         return diff
     
+    def _peg_touching_box(self):
+        contact_list = p.getContactPoints(self.peg_interface.obj_id, self.hole_interface.obj_id)
+        return len(contact_list) > 0
+
     def get_observation(self):
         """Get observation of current env state
 
@@ -138,7 +142,9 @@ class DataCollectionEnv(Env):
             - digits_color: color output from the fingertip sensors [np_array, np_array] (one for each finger)
             - proprio: 7f list of floats of joint positions in radians
         """
-        proprio = self.robot_interface.q
+        #proprio = self.robot_interface.q
+        proprio = self.robot_interface.link_position(self.focus_point_link, computeVelocity=True)
+        #print (f"proprio: {proprio}")
 
         cam_frames = self.world.camera_interface.frames()
         digits_color, digits_depth = self.digits.render()
@@ -149,6 +155,7 @@ class DataCollectionEnv(Env):
                 "digits_color": digits_color,
                 "proprio": proprio}
 
+        
         return obs
 
     def _peg_setup_exec(self):
@@ -204,8 +211,6 @@ class DataCollectionEnv(Env):
 
         interim_goal = self.robot_interface.link_position(self.ee_point) + goal_delta
         #interim_goal[2] = self.peg_interface.position[2] + self._grab_height_offset()
-        
-        
 
         #self.robot_interface.move_ee_delta(goal_list, set_ori=self._initial_ee_orn)
         self.robot_interface.set_link_pose_position_control(self.ee_point, interim_goal, self._initial_ee_orn)
@@ -279,7 +284,8 @@ class DataCollectionEnv(Env):
 
         post_action_ee_pos = np.asarray(self.robot_interface.link_position(self.focus_point_link))
         pos_delta = post_action_ee_pos - pre_action_ee_pos
-        return action_pos
+
+        return pos_delta #action_pos
 
     def _get_table_pos(self):
         table_id = self.world.arena.scene_objects_dict["table"]
@@ -414,11 +420,15 @@ class DataCollectionEnv(Env):
 
         reward = self.rewardFunction()
 
+        #print (f"PEG_CONTACT: {self._peg_touching_box()}")
+        
+        peg_contact_bool = self._peg_touching_box()
+
         post_action_observation = self.get_observation()
 
         info = self.info()
 
-        obs_arr = [pre_action_obs, post_action_observation, action_pos]
+        obs_arr = [pre_action_obs, post_action_observation, action_pos, peg_contact_bool]
         return obs_arr, reward, termination, info
 
     def _check_termination(self):
