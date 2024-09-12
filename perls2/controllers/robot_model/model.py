@@ -36,7 +36,6 @@ class Model:
         Args:
           offset_mass_matrix (bool): flag to turn on mass_matrix offset.
         """
-
         # robot states
         self.ee_pos = None
         self.ee_ori_quat = None
@@ -60,6 +59,7 @@ class Model:
         self._compile_jit_functions()
 
     def _compile_jit_functions(self):
+        import pdb; pdb.set_trace()
         dummy_mat = np.eye(3)
         dummy_quat = np.zeros(4)
         dummy_quat[-1] = 1.
